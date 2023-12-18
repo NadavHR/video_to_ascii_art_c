@@ -56,6 +56,7 @@ __kernel void rgb_to_gray(global const Matrix * img, global const Matrix * gray,
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
+// TODO: make this generic resize_img using the member_size from the img matrices
 __kernel void resize_RGB_img(global const Matrix * img, global const Matrix * out, global const RGB_pixel * rgb_data, global RGB_pixel * out_data){
     // whenever we multiply by 2 and than divide by 2 its so 0.5 or higher will get rounded to 1
     
@@ -84,5 +85,22 @@ __kernel void resize_RGB_img(global const Matrix * img, global const Matrix * ou
     out_data[id].red  =  (unsigned char)(((int)(FLT_EPSILON+2*average_red*average_s)) /2);
     out_data[id].green =(unsigned char)(((int)(FLT_EPSILON+2*average_green*average_s))/2);
     out_data[id].blue = (unsigned char)(((int)(FLT_EPSILON+2*average_blue*average_s))/2);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+}
+// TODO: make this generic resize_img using the member_size from the img matrices
+__kernel void flip_mat_y_gray(global const Matrix * mat, global const Matrix * out, global const char * mat_data, global char * out_data){
+    unsigned int id = get_global_id(0);
+
+    unsigned int y = id / mat->width;
+
+    out_data[id] = mat_data[(id % mat->width) + (mat->height - y)*mat->width];
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+}
+
+// TODO: make this generic resize_img using the member_size from the img matrices
+__kernel void flip_mat_gray(global const Matrix * mat, global const Matrix * out, global const char * mat_data, global char * out_data){
+    unsigned int id = get_global_id(0);
+
+    out_data[id] = *(mat_data + (mat->width*mat->height) - id);
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }

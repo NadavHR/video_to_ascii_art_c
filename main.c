@@ -85,6 +85,7 @@ void test_img_conv(){
     char gray_buffer[resized.width*resized.height];
     Matrix gray = {.data = gray_buffer,};
     rgb_to_gray(resized, &gray);
+    flip_y(gray, &gray);
     print_mat_gray(gray);
 
     finish_cl();

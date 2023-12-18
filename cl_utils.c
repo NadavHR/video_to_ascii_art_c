@@ -9,16 +9,18 @@
 
 
  // opencl values
-cl_int err;                     // error code returned from OpenCL calls
-size_t global;                  // global domain size
+cl_int err;                       // error code returned from OpenCL calls
+size_t global;                    // global domain size
 
-cl_device_id     device_id;     // compute device id
-cl_context       context;       // compute context
-cl_command_queue commands;      // compute command queue
-cl_program       program;       // compute program
-cl_kernel        ko_vmul;       // compute kernel for multiplying
-cl_kernel        ko_vadd;       // compute kernel for adding
-cl_kernel        ko_mat_conv;   // compute kernel for convolving matrices
+cl_device_id     device_id;       // compute device id
+cl_context       context;         // compute context
+cl_command_queue commands;        // compute command queue
+cl_program       program;         // compute program
+cl_kernel        ko_vmul;         // compute kernel for multiplying
+cl_kernel        ko_vadd;         // compute kernel for adding
+cl_kernel        ko_mat_conv_gray;// compute kernel for convolving matrices
+cl_kernel        ko_gray;         // compute kernel for turning rgb images to gray
+cl_kernel        ko_resize;       // compute kernel for resizing rgb images
 
 
 char * open_raw_source(char * file_name){
@@ -85,7 +87,9 @@ void init_cl(){
     }
     ko_vmul = clCreateKernel(program, "multiply", &err);
     ko_vadd = clCreateKernel(program, "add", &err);
-    ko_mat_conv = clCreateKernel(program, "convolve_gray", &err);
+    ko_mat_conv_gray = clCreateKernel(program, "convolve_gray", &err);
+    ko_gray = clCreateKernel(program, "rgb_to_gray", &err);
+    ko_resize = clCreateKernel(program, "resize_RGB_img", &err);
     free(Platform);
     free(raw_source);
 }
@@ -127,29 +131,29 @@ void vec_op_gpu(const float * a, const float * b, float * c, const unsigned int 
     clReleaseMemObject(d_c);
 }
 
-void kern_on_mat_gpu(const Matrix * mat, const Matrix * kern, Matrix * out_m, const cl_kernel comp_kernel){ 
+void convolve(const Matrix mat, const Matrix kern, Matrix * out_m, const cl_kernel comp_kernel){ 
     cl_mem d_mat;                     
     cl_mem d_kern; 
     cl_mem d_mat_data;
     cl_mem d_kern_data;  
     cl_mem d_out;                  
 
-    unsigned int size_of_mat_data = (mat->member_size)*(mat->width)*(mat->height);
+    unsigned int size_of_mat_data = (mat.member_size)*(mat.width)*(mat.height);
     void * p_out = out_m->data;
 
     d_mat  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      sizeof(Matrix) - sizeof(void *), mat, &err);
+      sizeof(Matrix) - sizeof(void *), &mat, &err);
     d_kern  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      sizeof(Matrix) - sizeof(void *), kern, &err);
+      sizeof(Matrix) - sizeof(void *), &kern, &err);
     d_kern_data  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      kern->member_size * kern->height * kern->width, kern->data, &err);
+      kern.member_size * kern.height * kern.width, kern.data, &err);
     d_mat_data  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      size_of_mat_data, mat->data, &err);
+      size_of_mat_data, mat.data, &err);
       
     d_out  = clCreateBuffer(context,  CL_MEM_READ_WRITE, 
      size_of_mat_data, NULL, &err);
     
-    const int count = (mat->height*mat->width);
+    const int count = (mat.height*mat.width);
 
     // Enqueue kernel - first time
     // Set the arguments to our compute kernel
@@ -169,13 +173,59 @@ void kern_on_mat_gpu(const Matrix * mat, const Matrix * kern, Matrix * out_m, co
     clReleaseMemObject(d_mat_data); 
     clReleaseMemObject(d_kern_data); 
     clReleaseMemObject(d_out);
-    out_m->height =  mat->height;
-    out_m->width =  mat->width;
-    out_m->member_size = mat->member_size;
+    out_m->height =  mat.height;
+    out_m->width =  mat.width;
+    out_m->member_size = mat.member_size;
 }
+void action_on_image(const Matrix mat, Matrix * out_m, const cl_kernel comp_kernel){                  
+    cl_mem d_mat;                     
+    cl_mem d_mat_data;
+    cl_mem d_out;  
+    cl_mem d_out_data;                  
 
-void convolve_gray(const Matrix * mat, const Matrix * kern, Matrix * out_m){
-    kern_on_mat_gpu(mat, kern, out_m, ko_mat_conv);
+    unsigned int size_of_out_data = (out_m->member_size)*(out_m->width)*(out_m->height);
+    void * p_out = out_m->data;
+
+    d_mat  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      sizeof(Matrix) - sizeof(void*), &mat, &err);
+    d_out  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      sizeof(Matrix) - sizeof(void*), out_m, &err);
+    d_mat_data  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      (mat.member_size)*(mat.width)*(mat.height), mat.data, &err);
+      
+    d_out_data  = clCreateBuffer(context,  CL_MEM_READ_WRITE, 
+     size_of_out_data, NULL, &err);
+    
+    const int count = (out_m->height) * (out_m->width);
+    
+    // Enqueue kernel - first time
+    // Set the arguments to our compute kernel
+    
+    err  = clSetKernelArg(comp_kernel, 0, sizeof(cl_mem), &d_mat);
+    err |= clSetKernelArg(comp_kernel, 1, sizeof(cl_mem), &d_out);
+    err |= clSetKernelArg(comp_kernel, 2, sizeof(cl_mem), &d_mat_data);
+    err |= clSetKernelArg(comp_kernel, 3, sizeof(cl_mem), &d_out_data);
+    err |= clSetKernelArg(comp_kernel, 4, sizeof(unsigned int), &count);
+    global = count;
+    err = clEnqueueNDRangeKernel(commands, comp_kernel, 1, NULL, &global, NULL, 0, NULL, NULL);
+
+    err = clEnqueueReadBuffer( commands, d_out_data, CL_TRUE, 0, size_of_out_data, p_out, 0, NULL, NULL );  
+    clReleaseMemObject(d_mat);
+    clReleaseMemObject(d_mat_data); 
+    clReleaseMemObject(d_out_data); 
+    clReleaseMemObject(d_out);
+}
+void rgb_to_gray(const Matrix img, Matrix * out_m){
+    out_m->height =  img.height;
+    out_m->width =  img.width;
+    out_m->member_size = img.member_size;
+    action_on_image(img, out_m, ko_gray);
+}
+void resize_rgb_image(const Matrix img, Matrix * out_m){
+    action_on_image(img, out_m, ko_resize);
+}
+void convolve_gray(const Matrix mat, const Matrix kern, Matrix * out_m){
+    convolve(mat, kern, out_m, ko_mat_conv_gray);
 }
 void add_on_gpu(const float * a, const float * b, float * c, const unsigned int buffer_size) {
     vec_op_gpu(a, b, c, buffer_size, ko_vadd);

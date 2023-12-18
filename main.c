@@ -30,22 +30,27 @@ void cl_test(){
     
     finish_cl();
 }
-int main(void){
-    // cl_test();
+void test_convolution(){
     init_cl();
-    char dm[] = {1, 2, 3, 4, 5,
-                 1, 2, 3, 4, 5,
-                 1, 2, 3, 4, 5,
-                 1, 2, 3, 4, 5,
-                 1, 2, 3, 4, 5};
-    char dk[] = {0, 0, 0,
-                 0, 1, 0,
-                 0, 0, 0};
+    char dm[] = {0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 1, 1, 1, 1, 1, 0,
+                 0, 0, 1, 1, 1, 1, 1, 0,
+                 0, 0, 1, 1, 1, 1, 1, 0,
+                 0, 0, 1, 1, 1, 1, 1, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0,};
+    char dk[] = {1, 0, -1,
+                 2, 0, -2,
+                 1, 0, -1};
     char dout[sizeof(dm)];
     Matrix mat = {
         .data = dm,
-        .height = 5,
-        .width = 5,
+        .height = 10,
+        .width = 8,
         .member_size = sizeof(char)
     };
     Matrix kern = {
@@ -61,8 +66,56 @@ int main(void){
         .width = 5,
         .member_size = sizeof(char)
     };
-    convolve_gray(&mat, &kern, &output);
-    print_mat_gray(&output);
+    convolve_gray(mat, kern, &output);
+    print_mat_gray(output);
     finish_cl();
+ 
+}
+void test_img_conv(){
+    init_cl();
+    Matrix img = openBMPFile("img.bmp");
+    char gray_buffer[img.width*img.height];
+    Matrix gray = {.data = gray_buffer};
+    rgb_to_gray(img, &gray);
+    print_mat_gray(gray);
+
+    finish_cl();
+    free(img.data);
+}
+void test_resize(){
+    init_cl();
+    char dm[] = { 0, 0, 0,  0, 0, 0,  0, 0, 0,
+                  0, 0, 100,  100, 100, 100,  100, 0, 0,
+                  0, 100, 0,  0, 0, 0,  0, 100, 0,
+                  0, 100, 0,  0, 0, 0,  0, 100, 0,
+                  0, 100, 0,  0, 0, 0,  0, 100, 0,
+                  0, 100, 0,  0, 0, 0,  0, 100, 0,
+                  0, 100, 0,  0, 0, 0,  0, 100, 0,
+                  0, 0, 100,  100, 100, 100,  100, 0, 0,
+                  0, 0, 0,  0, 0, 0,  0, 0, 0,
+                  0, 0, 0,  0, 0, 0,  0, 0, 0};
+    
+    Matrix mat = {
+        .data = dm,
+        .height = 9,
+        .width = 3,
+        .member_size = sizeof(char) * 3
+    };
+    char dout[3*5*4];
+    Matrix output = {
+        .data = dout,
+        .height = 4,
+        .width = 5,
+        .member_size = sizeof(char) * 3
+    };
+    resize_rgb_image(mat, &output);
+    print_img(output);
+    finish_cl();
+}
+
+int main(void){
+    // test_resize();
+    // cl_test();
+    test_img_conv();
     return 0;
 }

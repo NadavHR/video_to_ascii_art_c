@@ -7,18 +7,33 @@
 #define OUT_FRAME_RATE 24
 
 
-typedef struct matrix{
+struct matrix{
     unsigned int width;
     unsigned int height;
     unsigned int member_size;
     void * data;
-}__attribute__((packed)) Matrix;
+}__attribute__((packed));
+typedef struct matrix Matrix;
 
-void print_mat_gray(Matrix * mat) {
-    for (int i = 0; i < mat->height; i++){
-        for (int j = 0; j < mat->width; j++)
+
+void print_mat_gray(const Matrix mat) {
+    for (int i = 0; i < mat.height; i++){
+        for (int j = 0; j < mat.width; j++)
         {
-            printf("%d, ", *(char *)(mat->data+(i*mat->width + j)));
+            printf("%d, ", *(((char *)mat.data)+(i*mat.width + j)));
+        }
+        printf("\n");
+    }
+}
+void print_img(const Matrix mat) {
+    for (int i = 0; i < mat.height; i++){
+        for (int j = 0; j < (mat.width); j++)
+        {
+            printf("{ ");
+            for (int k = 0; k < mat.member_size; k++){
+                printf("%d, ", *(((char *)mat.data)+(mat.member_size*(i*mat.width + j) + k)));
+            }
+            printf("}, ");
         }
         printf("\n");
     }
@@ -50,12 +65,13 @@ Matrix readBMP(char* file_bin)
     Matrix mat = {
         .data = data,
         .height = height,
-        .width = width
+        .width = width,
+        .member_size = 3
     };
     return mat;
 }
 
-Matrix readBMPFile(unsigned char* filename){
+Matrix openBMPFile(unsigned char* filename){
 
     FILE* f = fopen(filename, "rb");
     fseek(f, 0, SEEK_END);

@@ -4,6 +4,12 @@
             "cwd": "c:\\Users\\nadav\\Desktop\\CodeStuff\\c\\trying_3d_rendering",
             "binaryPath": "c:\\Users\\nadav\\Desktop\\CodeStuff\\c\\trying_3d_rendering\\main.exe",
             "binaryArgs": []
+        },
+        {
+            "cwd": "c:\\Users\\nadav\\Desktop\\CodeStuff\\c\\ascii_art_c",
+            "binaryPath": "c:\\Users\\nadav\\Desktop\\CodeStuff\\c\\ascii_art_c\\main.exe",
+            "binaryArgs": []
         }
-    ]
+    ],
+    "C_Cpp.errorSquiggles": "enabled"
 }

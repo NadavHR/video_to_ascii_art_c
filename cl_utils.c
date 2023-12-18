@@ -55,7 +55,6 @@ void init_cl(){
 
     cl_platform_id * Platform = malloc(numPlatforms*sizeof(cl_platform_id));
     err = clGetPlatformIDs(numPlatforms, Platform, NULL);
-
     // Secure a GPU
     for (int i = 0; i < numPlatforms; i++)
     {
@@ -128,22 +127,27 @@ void vec_op_gpu(const float * a, const float * b, float * c, const unsigned int 
     clReleaseMemObject(d_c);
 }
 
-void kern_on_mat_gpu(Matrix * mat, Matrix * kern, cl_kernel comp_kernel){ // TODO: fix to use different pointers for input and output
+void kern_on_mat_gpu(const Matrix * mat, const Matrix * kern, Matrix * out_m, const cl_kernel comp_kernel){ 
     cl_mem d_mat;                     
     cl_mem d_kern; 
     cl_mem d_mat_data;
-    cl_mem d_kern_data;                    
+    cl_mem d_kern_data;  
+    cl_mem d_out;                  
 
+    unsigned int size_of_mat_data = (mat->member_size)*(mat->width)*(mat->height);
+    void * p_out = out_m->data;
 
     d_mat  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
       sizeof(Matrix) - sizeof(void *), mat, &err);
     d_kern  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
       sizeof(Matrix) - sizeof(void *), kern, &err);
     d_kern_data  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      kern->member_size * kern->height * kern->width, kern, &err);
-    
-    d_mat_data  = clCreateBuffer(context,  CL_MEM_READ_WRITE, 
-    mat->member_size * mat->height * mat->width, NULL, &err);
+      kern->member_size * kern->height * kern->width, kern->data, &err);
+    d_mat_data  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      size_of_mat_data, mat->data, &err);
+      
+    d_out  = clCreateBuffer(context,  CL_MEM_READ_WRITE, 
+     size_of_mat_data, NULL, &err);
     
     const int count = (mat->height*mat->width);
 
@@ -154,19 +158,24 @@ void kern_on_mat_gpu(Matrix * mat, Matrix * kern, cl_kernel comp_kernel){ // TOD
     err |= clSetKernelArg(comp_kernel, 1, sizeof(cl_mem), &d_kern);
     err |= clSetKernelArg(comp_kernel, 2, sizeof(cl_mem), &d_mat_data);
     err |= clSetKernelArg(comp_kernel, 3, sizeof(cl_mem), &d_kern_data);
-    err |= clSetKernelArg(comp_kernel, 4, sizeof(unsigned int), &count);
+    err |= clSetKernelArg(comp_kernel, 4, sizeof(cl_mem), &d_out);
+    err |= clSetKernelArg(comp_kernel, 5, sizeof(unsigned int), &count);
     global = count;
     err = clEnqueueNDRangeKernel(commands, comp_kernel, 1, NULL, &global, NULL, 0, NULL, NULL);
 
-    err = clEnqueueReadBuffer( commands, d_mat_data, CL_TRUE, 0, mat->member_size * count, mat->data, 0, NULL, NULL );  
+    err = clEnqueueReadBuffer( commands, d_out, CL_TRUE, 0, size_of_mat_data, p_out, 0, NULL, NULL );  
     clReleaseMemObject(d_mat);
     clReleaseMemObject(d_kern);
     clReleaseMemObject(d_mat_data); 
     clReleaseMemObject(d_kern_data); 
+    clReleaseMemObject(d_out);
+    out_m->height =  mat->height;
+    out_m->width =  mat->width;
+    out_m->member_size = mat->member_size;
 }
 
-void convolve(Matrix * mat, Matrix * kern){
-    kern_on_mat_gpu(mat, kern, ko_mat_conv);
+void convolve_gray(const Matrix * mat, const Matrix * kern, Matrix * out_m){
+    kern_on_mat_gpu(mat, kern, out_m, ko_mat_conv);
 }
 void add_on_gpu(const float * a, const float * b, float * c, const unsigned int buffer_size) {
     vec_op_gpu(a, b, c, buffer_size, ko_vadd);

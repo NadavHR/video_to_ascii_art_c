@@ -4,35 +4,40 @@ typedef struct matrix{
     unsigned int height;
     unsigned int member_size;
 
-} Matrix;
+}__attribute__((packed)) Matrix;
 
 
 __kernel void add(global const float * a, global const float * b, global float * c) {
     int id = get_global_id(0);
     c[id] = a[id] + b[id];
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
 
 __kernel void multiply(global const float * a, global const float * b, global float * c) {
     int id = get_global_id(0);
     c[id] = (a[id] * b[id]);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
 __kernel void convolve_gray(global const Matrix * mat, global const Matrix * kern,
-                             global void * mat_data, global const void * kern_data) { 
-    // TODO: fix to actualy convolve as matrix and not 1d list
-    // TODO: fix to use different pointers for input and output
+                            const global char * mat_data, global const char * kern_data,
+                            global char * out) { 
     int id = get_global_id(0);
-    global char * p_cur = (global char *)(mat_data + id);
     char conv = 0;
-    long mat_start = mat_data;
-    long mat_end = mat_data + (mat->height*mat->width);
-    long i_start = p_cur - ((kern->width * kern->height)/2);
-    for (long i = i_start;
-             i < (long)(p_cur +(kern->width * kern->height)/2 + 1);
-             i++) {
-        conv += ((i >= mat_start) && (i <= mat_end)) * // makes sure value is 0 if outside bounds
-                ((*(char *)i) * (*(global char*)(kern_data+(i - i_start))));
+    int x_start = (id % mat->width)-((kern->width)/2);
+    int y_start = (id / mat->width)-((kern->height)/2);
+    unsigned int mat_size = (mat->height*mat->width*sizeof(char));
+    for (unsigned int i = 0; i < kern->width; i++){
+        for (unsigned int j = 0; j < kern->height; j++){
+            int cur_index = ((x_start + i) + ((y_start + j)*mat->width));
+            if ((cur_index >= 0) && (cur_index < mat_size)) { // makes sure value is 0 if out of matrix bounds)
+                conv +=((mat_data[cur_index]) * // current place in mat
+                (kern_data[i + (j*kern->width)])); // current place in kern
+            }
+        }
     }
-    *(p_cur) = conv;
+    // printf("%d", conv);
+    out[id] = conv;
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }

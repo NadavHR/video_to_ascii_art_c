@@ -8,13 +8,21 @@
 
 
 typedef struct matrix{
-    void * data;
     unsigned int width;
     unsigned int height;
     unsigned int member_size;
+    void * data;
+}__attribute__((packed)) Matrix;
 
-} Matrix;
-
+void print_mat_gray(Matrix * mat) {
+    for (int i = 0; i < mat->height; i++){
+        for (int j = 0; j < mat->width; j++)
+        {
+            printf("%d, ", *(char *)(mat->data+(i*mat->width + j)));
+        }
+        printf("\n");
+    }
+}
 Matrix readBMP(char* file_bin)
 {
     int i;

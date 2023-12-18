@@ -74,9 +74,17 @@ void test_convolution(){
 void test_img_conv(){
     init_cl();
     Matrix img = openBMPFile("img.bmp");
-    char gray_buffer[img.width*img.height];
-    Matrix gray = {.data = gray_buffer};
-    rgb_to_gray(img, &gray);
+    char resized_data[200*100*img.member_size];
+    Matrix resized = {
+        .data = resized_data,
+        .height = 200,
+        .width = 100,
+        .member_size = img.member_size
+    };
+    resize_rgb_image(img, &resized);
+    char gray_buffer[resized.width*resized.height];
+    Matrix gray = {.data = gray_buffer,};
+    rgb_to_gray(resized, &gray);
     print_mat_gray(gray);
 
     finish_cl();

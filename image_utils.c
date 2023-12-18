@@ -20,7 +20,16 @@ void print_mat_gray(const Matrix mat) {
     for (int i = 0; i < mat.height; i++){
         for (int j = 0; j < mat.width; j++)
         {
-            printf("%d, ", *(((char *)mat.data)+(i*mat.width + j)));
+            char pixel =  *(((char *)mat.data)+(i*mat.width + j));
+            unsigned char buff_spaces = 
+                (pixel >= 0) + // plus 1 if no - sign
+                (abs(pixel) % 100 == abs(pixel)) + // plus 1 if nothing in th 100s place
+                (abs(pixel) % 10 == abs(pixel)) // plus 1 nothing in 10s places
+            ;
+            for (char k = 0; k < buff_spaces; k++){
+                printf(" ");
+            }
+            printf("%d, ", pixel);
         }
         printf("\n");
     }

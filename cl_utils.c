@@ -218,7 +218,7 @@ void action_on_image(const Matrix mat, Matrix * out_m, const cl_kernel comp_kern
 void rgb_to_gray(const Matrix img, Matrix * out_m){
     out_m->height =  img.height;
     out_m->width =  img.width;
-    out_m->member_size = img.member_size;
+    out_m->member_size = sizeof(char);
     action_on_image(img, out_m, ko_gray);
 }
 void resize_rgb_image(const Matrix img, Matrix * out_m){

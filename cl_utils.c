@@ -20,8 +20,8 @@ cl_kernel        ko_vmul;         // compute kernel for multiplying
 cl_kernel        ko_vadd;         // compute kernel for adding
 cl_kernel        ko_mat_conv_gray;// compute kernel for convolving matrices
 cl_kernel        ko_gray;         // compute kernel for turning rgb images to gray
-cl_kernel        ko_resize;       // compute kernel for resizing rgb images
-cl_kernel        ko_flip_y;     // compute kernel for fliping y of images
+cl_kernel        ko_resize;       // compute kernel for resizing images
+cl_kernel        ko_flip_y;       // compute kernel for fliping y of images
 
 
 char * open_raw_source(char * file_name){
@@ -90,8 +90,8 @@ void init_cl(){
     ko_vadd = clCreateKernel(program, "add", &err);
     ko_mat_conv_gray = clCreateKernel(program, "convolve_gray", &err);
     ko_gray = clCreateKernel(program, "rgb_to_gray", &err);
-    ko_resize = clCreateKernel(program, "resize_RGB_img", &err);
-    ko_flip_y = clCreateKernel(program, "flip_mat_y_gray", &err);
+    ko_resize = clCreateKernel(program, "resize_img", &err);
+    ko_flip_y = clCreateKernel(program, "flip_mat_y", &err);
     free(Platform);
     free(raw_source);
 }
@@ -229,7 +229,7 @@ void flip_y(const Matrix img, Matrix * out_m){
     out_m->member_size = img.member_size;
     action_on_image(img, out_m, ko_flip_y);
 }
-void resize_rgb_image(const Matrix img, Matrix * out_m){
+void resize_image(const Matrix img, Matrix * out_m){
     action_on_image(img, out_m, ko_resize);
 }
 void convolve_gray(const Matrix mat, const Matrix kern, Matrix * out_m){

@@ -56,51 +56,50 @@ __kernel void rgb_to_gray(global const Matrix * img, global const Matrix * gray,
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
-// TODO: make this generic resize_img using the member_size from the img matrices
-__kernel void resize_RGB_img(global const Matrix * img, global const Matrix * out, global const RGB_pixel * rgb_data, global RGB_pixel * out_data){
+__kernel void resize_img(global const Matrix * img, global const Matrix * out, global const char * rgb_data, global char * out_data){
     // whenever we multiply by 2 and than divide by 2 its so 0.5 or higher will get rounded to 1
-    
+    unsigned int member_size = img->member_size;
+    unsigned int og_width = img->width;
+    unsigned int og_height = img->height;
+    unsigned int out_width = out->width;
+    unsigned int out_height = out->height;
     unsigned int id = get_global_id(0);
-    float scale_w = ((float)(img->width)) / ((float)(out->width));
-    float scale_h = ((float)(img->height)) / ((float)(out->height));
-    unsigned int x = ((unsigned int)((float)((id % out->width)) * 2 * scale_w + FLT_EPSILON))/2;
-    unsigned int y = ((unsigned int)((float)((id / out->width)) * 2 * scale_h + FLT_EPSILON))/2;
+    float scale_w = ((float)(og_width)) / ((float)(out_width));
+    float scale_h = ((float)(og_height)) / ((float)(out_height));
+    unsigned int x = ((unsigned int)((float)((id % out_width)) * 2 * scale_w + FLT_EPSILON))/2;
+    unsigned int y = ((unsigned int)((float)((id / out_width)) * 2 * scale_h + FLT_EPSILON))/2;
     unsigned int x_radius = ((unsigned int)max(2*scale_w+FLT_EPSILON, (float)2))/2;
     unsigned int y_radius = ((unsigned int)max(2*scale_h+FLT_EPSILON, (float)2))/2;
     float average_s = 1.0 / (float)(x_radius*y_radius);
-    float average_red = 0;
-    float average_green = 0;
-    float average_blue = 0;
-    
-    for (int i = x; i < x+x_radius; i++){
-        for (int j = y; j < y+y_radius; j++){
-            RGB_pixel pixel = rgb_data[(i + j*img->width)];
-            
-            average_red += (float)(pixel.red);
-            average_green += (float)(pixel.green);
-            average_blue += (float)(pixel.blue);
-            // }
+    id = id * member_size;
+    for (unsigned int iter = 0; iter < member_size; iter++){
+        float average = 0;
+        for (int i = x; i < x+x_radius; i++){
+            for (int j = y; j < y+y_radius; j++){
+                char pixel = rgb_data[(i + j*og_width)*member_size + iter];
+                average += (float)pixel;
+            }
         }
+        out_data[id + iter] = (char)(((int)(FLT_EPSILON+2*average*average_s)) /2);
     }
-    out_data[id].red  =  (unsigned char)(((int)(FLT_EPSILON+2*average_red*average_s)) /2);
-    out_data[id].green =(unsigned char)(((int)(FLT_EPSILON+2*average_green*average_s))/2);
-    out_data[id].blue = (unsigned char)(((int)(FLT_EPSILON+2*average_blue*average_s))/2);
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
-// TODO: make this generic resize_img using the member_size from the img matrices
-__kernel void flip_mat_y_gray(global const Matrix * mat, global const Matrix * out, global const char * mat_data, global char * out_data){
+__kernel void flip_mat_y(global const Matrix * mat, global const Matrix * out, global const char * mat_data, global char * out_data){
     unsigned int id = get_global_id(0);
-
-    unsigned int y = id / mat->width;
-
-    out_data[id] = mat_data[(id % mat->width) + (mat->height - y)*mat->width];
+    unsigned int index_og = ((id % mat->width) + ((mat->height - (id / mat->width))*mat->width)) * mat->member_size;
+    unsigned int index_out = id * mat->member_size;
+    for (unsigned int i = 0; i < mat->member_size; i++){
+        out_data[index_out + i] = mat_data[i + index_og];
+    }
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
-// TODO: make this generic resize_img using the member_size from the img matrices
-__kernel void flip_mat_gray(global const Matrix * mat, global const Matrix * out, global const char * mat_data, global char * out_data){
+__kernel void flip_mat(global const Matrix * mat, global const Matrix * out, global const char * mat_data, global char * out_data){
     unsigned int id = get_global_id(0);
-
-    out_data[id] = *(mat_data + (mat->width*mat->height) - id);
+    unsigned int index_og = ((mat->width*mat->height) - id) * mat->member_size;
+    unsigned int index_out = id * mat->member_size;
+    for (unsigned int i = 0;  i < mat->member_size;  i++){
+        out_data[index_out + i] = mat_data[index_og + i];
+    }
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }

@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
  
 #define BMP_HEADER_SIZE 54
 #define BMP_WIDTH_INDEX 18
@@ -38,9 +38,18 @@ void print_img(const Matrix mat) {
     for (int i = 0; i < mat.height; i++){
         for (int j = 0; j < (mat.width); j++)
         {
-            printf("{ ");
+            printf("{");
             for (int k = 0; k < mat.member_size; k++){
-                printf("%d, ", *(((char *)mat.data)+(mat.member_size*(i*mat.width + j) + k)));
+                char pixel =  *(((char *)mat.data)+(mat.member_size*(i*mat.width + j) + k));
+                unsigned char buff_spaces = 
+                    (pixel >= 0) + // plus 1 if no - sign
+                    (abs(pixel) % 100 == abs(pixel)) + // plus 1 if nothing in th 100s place
+                    (abs(pixel) % 10 == abs(pixel)) // plus 1 nothing in 10s places
+                ;
+                for (char p = 0; p < buff_spaces; p++){
+                    printf(" ");
+                }
+                printf("%d, ", pixel);
             }
             printf("}, ");
         }

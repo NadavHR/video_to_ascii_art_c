@@ -22,7 +22,7 @@ cl_kernel        ko_mat_conv_gray;// compute kernel for convolving matrices
 cl_kernel        ko_gray;         // compute kernel for turning rgb images to gray
 cl_kernel        ko_resize;       // compute kernel for resizing images
 cl_kernel        ko_flip_y;       // compute kernel for fliping y of images
-
+cl_kernel        ko_interlace_b;   // compute kernel for interlacing bytes of 2 images
 
 char * open_raw_source(char * file_name){
     FILE * f = fopen(file_name, "r");
@@ -92,6 +92,7 @@ void init_cl(){
     ko_gray = clCreateKernel(program, "rgb_to_gray", &err);
     ko_resize = clCreateKernel(program, "resize_img", &err);
     ko_flip_y = clCreateKernel(program, "flip_mat_y", &err);
+    ko_interlace_b = clCreateKernel(program, "interlace_bytes", &err);
     free(Platform);
     free(raw_source);
 }
@@ -133,7 +134,7 @@ void vec_op_gpu(const float * a, const float * b, float * c, const unsigned int 
     clReleaseMemObject(d_c);
 }
 
-void convolve(const Matrix mat, const Matrix kern, Matrix * out_m, const cl_kernel comp_kernel){ 
+void op_two_matrices(const Matrix mat, const Matrix mat2, Matrix * out_m, const cl_kernel comp_kernel){ 
     cl_mem d_mat;                     
     cl_mem d_kern; 
     cl_mem d_mat_data;
@@ -146,9 +147,9 @@ void convolve(const Matrix mat, const Matrix kern, Matrix * out_m, const cl_kern
     d_mat  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
       sizeof(Matrix) - sizeof(void *), &mat, &err);
     d_kern  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      sizeof(Matrix) - sizeof(void *), &kern, &err);
+      sizeof(Matrix) - sizeof(void *), &mat2, &err);
     d_kern_data  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      kern.member_size * kern.height * kern.width, kern.data, &err);
+      mat2.member_size * mat2.height * mat2.width, mat2.data, &err);
     d_mat_data  = clCreateBuffer(context,  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
       size_of_mat_data, mat.data, &err);
       
@@ -175,9 +176,7 @@ void convolve(const Matrix mat, const Matrix kern, Matrix * out_m, const cl_kern
     clReleaseMemObject(d_mat_data); 
     clReleaseMemObject(d_kern_data); 
     clReleaseMemObject(d_out);
-    out_m->height =  mat.height;
-    out_m->width =  mat.width;
-    out_m->member_size = mat.member_size;
+
 }
 void action_on_image(const Matrix mat, Matrix * out_m, const cl_kernel comp_kernel){                  
     cl_mem d_mat;                     
@@ -233,7 +232,15 @@ void resize_image(const Matrix img, Matrix * out_m){
     action_on_image(img, out_m, ko_resize);
 }
 void convolve_gray(const Matrix mat, const Matrix kern, Matrix * out_m){
-    convolve(mat, kern, out_m, ko_mat_conv_gray);
+        out_m->height =  mat.height;
+        out_m->width =  mat.width;
+        out_m->member_size = mat.member_size;
+    op_two_matrices(mat, kern, out_m, ko_mat_conv_gray);
+}
+void interlace_bytes(const Matrix mat, const Matrix mat2, Matrix * out_m){
+    out_m->width = 2*mat.width;
+    out_m->height = 2*mat.height;
+    op_two_matrices(mat, mat2, out_m, ko_interlace_b);
 }
 void add_on_gpu(const float * a, const float * b, float * c, const unsigned int buffer_size) {
     vec_op_gpu(a, b, c, buffer_size, ko_vadd);

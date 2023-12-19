@@ -24,6 +24,7 @@ __kernel void multiply(global const float * a, global const float * b, global fl
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
+\
 __kernel void convolve_gray(global const Matrix * mat, global const Matrix * kern,
                             const global char * mat_data, global const char * kern_data,
                             global char * out) { 
@@ -84,6 +85,7 @@ __kernel void resize_img(global const Matrix * img, global const Matrix * out, g
     }
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
+
 __kernel void flip_mat_y(global const Matrix * mat, global const Matrix * out, global const char * mat_data, global char * out_data){
     unsigned int id = get_global_id(0);
     unsigned int index_og = ((id % mat->width) + ((mat->height - (id / mat->width))*mat->width)) * mat->member_size;
@@ -101,5 +103,14 @@ __kernel void flip_mat(global const Matrix * mat, global const Matrix * out, glo
     for (unsigned int i = 0;  i < mat->member_size;  i++){
         out_data[index_out + i] = mat_data[index_og + i];
     }
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+}
+
+__kernel void interlace_bytes(global const Matrix * mat, global const Matrix * mat2,
+                            const global char * mat_data, global const char * mat2_data,
+                            global char * out){
+    unsigned int id = get_global_id(0);
+    out[id] = mat_data[id];
+    out[id + 1] = mat2_data[id];
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
